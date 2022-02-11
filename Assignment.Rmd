@@ -34,6 +34,7 @@ tables <- webpage %>%
   html_nodes('table') %>%
   magrittr::extract2(3) %>%
   html_table(fill = TRUE)
+
 #That didn't work, so let's try a different approach
 
 #Extract only weblinks and then the URLs!
@@ -81,7 +82,7 @@ if(evaluate == T){
 
 ```
 
-## Q3. Read pdf to make header
+## Q3. Read pdf to make a new column header appending a site column
 
 ```{r, message=F}
 
@@ -93,7 +94,8 @@ headers <- pdf_text('https://snowstudies.org/wp-content/uploads/2022/02/Serially
   str_split_fixed(.,'\\.',2) %>%
   .[,2] %>%
   .[1:26] %>%
-  str_trim(side = "left")
+  str_trim(side = "left") %>% 
+  append("site")
 
 ```
 
@@ -101,12 +103,13 @@ headers <- pdf_text('https://snowstudies.org/wp-content/uploads/2022/02/Serially
 ## Q4. Read the forcing data using map function and summary
 
 ```{r}
-#Read the data as a map function & append a site column to the data
+#Read the data as a map function 
 our_forcing_reader <- function(file){
   name = str_split_fixed(file,'/',2)[,2] %>%
-    gsub('_Forcing_Data.txt','',.)
+    gsub('_Forcing_Data.txt','',.) %>% 
+    gsub('SBB_','',.) 
     df <- read.delim(file, header = F, sep = "", col.names = headers) %>%
-    select(year, month, air.temp..K.) %>%
+    select(year, month, air.temp..K., site) %>%
     mutate(site = name)
 }
 
@@ -140,7 +143,7 @@ ggplot(temp_yearly,aes(x=year,y=mean_temp,color=site)) +
 **A: As can be seen graphs below, the monthly average temperature at the SASP(Snow Angel Study Plot) is always higher than the one of SBSP(Senator Beck Study Plot) in any given years from 2005 to 2010. So, we can't say that SBSP is warmer than SASP**
 
 ```{r, message=F}
-#make monthly tempearature data frame
+#make monthly temperature data frame
 temp_monthly <- forcing_data_full %>% 
   group_by(year, month, site) %>% 
   summarize(average_temp = mean(air.temp..K.,na.rm=T))
@@ -148,14 +151,15 @@ temp_monthly <- forcing_data_full %>%
 #plot the graph by given year(2005~2010)
 for(i in 2005:2010){
   temp_monthly_by_year <- filter(temp_monthly, year==i)
-  print(ggplot(temp_monthly_by_year, aes(x=month, y=average_temp, color = site)) +
+  plot(ggplot(temp_monthly_by_year, aes(x=month, y=average_temp, color = site)) + 
    geom_point() +
    geom_line() +
    ggthemes::theme_few() + 
    ggthemes::scale_color_few() +
-   theme(legend.position=c(0.1,0.8)))
+   theme(legend.position=c(0.1,0.8)) +
+   labs(title=i, y="Monthly Mean Temperature by given year", x="Month"))
 }
-
+ 
 ```
 
 
@@ -166,7 +170,8 @@ for(i in 2005:2010){
 
 our_precip_reader <- function(file){
   name = str_split_fixed(file,'/',2)[,2] %>%
-    gsub('_Forcing_Data.txt','',.)
+    gsub('_Forcing_Data.txt','',.) %>% 
+    gsub('SBB_','',.)
     df <- read.delim(file, header = F, sep = "", col.names = headers) %>%
     select(year, month, day, precip..kg.m.2.s.1.) %>%
     mutate(site = name)
@@ -188,7 +193,6 @@ ggplot(precip_yearly,aes(x=year,y=mean_precip,color=site)) +
   ggthemes::scale_color_few() +
   theme(legend.position=c(0.8,0.8))
 
-
 ```
 
 ## Bonus2, yearly plots of percipitation by day of year
@@ -198,13 +202,13 @@ precip_daily <- precip_data_full %>%
   summarize(average_day_precip = mean(precip..kg.m.2.s.1.,na.rm=T))
 
 #plot the graph by given year(2005~2010)
+par(mfrow=c(2,3))
+
 for(i in 2005:2010){
-  precip_daily_by_year <- filter(precip_daily, year==i)
-  print(ggplot(precip_daily_by_year, aes(x=month, y=average_day_precip, color = site)) +
-   geom_point() +
-   geom_line() +
-   ggthemes::theme_few() + 
-   ggthemes::scale_color_few())
+  precip_daily_by_year <- filter(precip_daily, year==i)   
+  plot(x=precip_daily_by_year$month, y=precip_daily_by_year$average_day_precip,
+       xlab="month", ylab="average daily precipitation", main = i,
+       type="b")
 }
 
 
